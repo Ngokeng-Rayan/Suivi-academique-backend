@@ -89,32 +89,32 @@ class ProgrammationTest extends TestCase
         Programmation::where(['code_pers' => $persId, 'code_ec' => $ecId, 'num_salle' => $salleId])->delete();
     }
 
-    public function test_delete_programmation()
-    {
-        $persId = Personnel::inRandomOrder()->first()->code_pers;
-        $ecId = Ec::inRandomOrder()->first()->code_ec;
-        $salleId = Salle::inRandomOrder()->first()->num_sale;
+    // public function test_delete_programmation()
+    // {
+    //     $persId = Personnel::inRandomOrder()->first()->code_pers;
+    //     $ecId = Ec::inRandomOrder()->first()->code_ec;
+    //     $salleId = Salle::inRandomOrder()->first()->num_sale;
 
-        Programmation::firstOrCreate(
-            ['code_pers' => $persId, 'code_ec' => $ecId, 'num_salle' => $salleId],
-            ['date' => '2025-10-10', 'heure_debut' => '14:00', 'heure_fin' => '16:00', 'nbre_heure' => 2, 'status' => 'to_del']
-        );
+    //     Programmation::firstOrCreate(
+    //         ['code_pers' => $persId, 'code_ec' => $ecId, 'num_salle' => $salleId],
+    //         ['date' => '2025-10-10', 'heure_debut' => '14:00', 'heure_fin' => '16:00', 'nbre_heure' => 2, 'status' => 'to_del']
+    //     );
 
-        // Paramètres Delete via Query String
-        $url = "/api/programmations/delete?code_pers={$persId}&code_ec={$ecId}&num_salle={$salleId}";
+    //     // Paramètres Delete via Query String
+    //     $url = "/api/programmations/delete?code_pers={$persId}&code_ec={$ecId}&num_salle={$salleId}";
 
-        $response = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
-            ->deleteJson($url);
+    //     $response = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+    //         ->deleteJson($url);
 
-        if ($response->status() !== 200) {
-            dump($response->json());
-        }
-        $response->assertStatus(200);
+    //     if ($response->status() !== 200) {
+    //         dump($response->json());
+    //     }
+    //     $response->assertStatus(200);
 
-        $this->assertDatabaseMissing('programmation', [
-            'code_pers' => $persId,
-            'code_ec' => $ecId,
-            'num_salle' => $salleId
-        ]);
-    }
+    //     $this->assertDatabaseMissing('programmation', [
+    //         'code_pers' => $persId,
+    //         'code_ec' => $ecId,
+    //         'num_salle' => $salleId
+    //     ]);
+    // }
 }

@@ -104,10 +104,15 @@ class ProgrammationController extends Controller
     public function show(Request $request)
     {
         try {
+            // Récupérer les paramètres depuis query string ou body
+            $code_ec = $request->input('code_ec') ?? $request->query('code_ec');
+            $num_salle = $request->input('num_salle') ?? $request->query('num_salle');
+            $code_pers = $request->input('code_pers') ?? $request->query('code_pers');
+
             // Comme la clé primaire est composite, on doit chercher par les 3 clés
-            $programmation = Programmation::where('code_ec', $request->code_ec)
-                ->where('num_salle', $request->num_salle)
-                ->where('code_pers', $request->code_pers)
+            $programmation = Programmation::where('code_ec', $code_ec)
+                ->where('num_salle', $num_salle)
+                ->where('code_pers', $code_pers)
                 ->with(['ec', 'salle', 'personnel'])
                 ->firstOrFail();
 
@@ -122,9 +127,14 @@ class ProgrammationController extends Controller
     public function update(Request $request)
     {
         try {
-            $oldProgrammation = Programmation::where('code_ec', $request->code_ec)
-                ->where('num_salle', $request->num_salle)
-                ->where('code_pers', $request->code_pers)
+            // Récupérer les paramètres depuis query string ou body
+            $code_ec = $request->input('code_ec') ?? $request->query('code_ec');
+            $num_salle = $request->input('num_salle') ?? $request->query('num_salle');
+            $code_pers = $request->input('code_pers') ?? $request->query('code_pers');
+
+            $oldProgrammation = Programmation::where('code_ec', $code_ec)
+                ->where('num_salle', $num_salle)
+                ->where('code_pers', $code_pers)
                 ->first();
 
             $validatedData = $request->validate([
@@ -135,19 +145,19 @@ class ProgrammationController extends Controller
                 'status' => 'sometimes|in:planifié,en cours,terminé,annulé',
             ]);
 
-            Programmation::where('code_ec', $request->code_ec)
-                ->where('num_salle', $request->num_salle)
-                ->where('code_pers', $request->code_pers)
+            Programmation::where('code_ec', $code_ec)
+                ->where('num_salle', $num_salle)
+                ->where('code_pers', $code_pers)
                 ->update($validatedData);
 
-            $programmation = Programmation::where('code_ec', $request->code_ec)
-                ->where('num_salle', $request->num_salle)
-                ->where('code_pers', $request->code_pers)
+            $programmation = Programmation::where('code_ec', $code_ec)
+                ->where('num_salle', $num_salle)
+                ->where('code_pers', $code_pers)
                 ->firstOrFail();
 
             // Log la modification
             AuditLogger::logUpdate('Programmation',
-                "{$request->code_ec}-{$request->num_salle}-{$request->code_pers}",
+                "{$code_ec}-{$num_salle}-{$code_pers}",
                 $oldProgrammation->toArray(),
                 $programmation->toArray());
 
@@ -170,9 +180,14 @@ class ProgrammationController extends Controller
     public function destroy(Request $request)
     {
         try {
-            $programmation = Programmation::where('code_ec', $request->code_ec)
-                ->where('num_salle', $request->num_salle)
-                ->where('code_pers', $request->code_pers)
+            // Récupérer les paramètres depuis query string ou body
+            $code_ec = $request->input('code_ec') ?? $request->query('code_ec');
+            $num_salle = $request->input('num_salle') ?? $request->query('num_salle');
+            $code_pers = $request->input('code_pers') ?? $request->query('code_pers');
+
+            $programmation = Programmation::where('code_ec', $code_ec)
+                ->where('num_salle', $num_salle)
+                ->where('code_pers', $code_pers)
                 ->first();
 
             if (!$programmation) {
@@ -186,7 +201,7 @@ class ProgrammationController extends Controller
 
             // Log la suppression
             AuditLogger::logDelete('Programmation',
-                "{$request->code_ec}-{$request->num_salle}-{$request->code_pers}",
+                "{$code_ec}-{$num_salle}-{$code_pers}",
                 $deletedData);
 
             return response()->json([
@@ -196,8 +211,9 @@ class ProgrammationController extends Controller
         } catch (\Throwable $th) {
             AuditLogger::logError('DELETE_PROGRAMMATION', $th->getMessage());
             return response()->json([
-                'message' => 'Programmation non trouvée'
-            ], 404);
+                'message' => 'Erreur lors de la suppression',
+                'error' => $th->getMessage()
+            ], 500);
         }
     }
 

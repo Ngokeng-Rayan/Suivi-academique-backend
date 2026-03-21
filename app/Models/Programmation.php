@@ -35,7 +35,8 @@ class Programmation extends Model
 {
 	use HasFactory;
 	protected $table = 'programmation';
-	public $incrementing = false; // Composite primary key
+	public $incrementing = false;
+	protected $primaryKey = null; // Pas de clé primaire unique pour Eloquent
 	public $timestamps = true;
 	protected $casts = [
 		'date' => 'datetime',
@@ -55,7 +56,7 @@ class Programmation extends Model
 		'status'
 	];
 
-    protected $primaryKey = ['code_ec','num_salle','code_pers']; // Eloquent doesn't directly support composite primary keys, but this is for documentation/clarity
+	// Composite primary key: code_ec, num_salle, code_pers
 
 	public function ec(): BelongsTo
 	{
