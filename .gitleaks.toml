@@ -1,0 +1,54 @@
+# Configuration Gitleaks pour détecter les secrets
+
+title = "Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "laravel-app-key"
+description = "Laravel APP_KEY"
+regex = '''APP_KEY=base64:[A-Za-z0-9+/]{43}='''
+tags = ["key", "laravel"]
+
+[[rules]]
+id = "database-password"
+description = "Database Password"
+regex = '''DB_PASSWORD=.+'''
+tags = ["password", "database"]
+[rules.allowlist]
+paths = ['''.env.example''']
+
+[[rules]]
+id = "api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)[\s]*[=:]["']?[A-Za-z0-9]{20,}["']?'''
+tags = ["api", "key"]
+
+[[rules]]
+id = "jwt-secret"
+description = "JWT Secret"
+regex = '''(?i)(jwt[_-]?secret)[\s]*[=:]["']?[A-Za-z0-9+/=]{32,}["']?'''
+tags = ["jwt", "secret"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws", "key"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'''
+tags = ["key", "private"]
+
+[allowlist]
+description = "Allowlist"
+paths = [
+    '''.env.example''',
+    '''.env.testing''',
+    '''tests/''',
+    '''README.md''',
+    '''SECURITY.md'''
+]

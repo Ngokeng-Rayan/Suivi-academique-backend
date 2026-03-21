@@ -1,35 +1,269 @@
-name: SA_CI_CD
+name: Laravel Secure CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
 jobs:
-  laravel-tests:
-
+  # 1. Analyse de sécurité des dépendances
+  security-scan:
+    name: Security Vulnerability Scan
     runs-on: ubuntu-latest
-
+    
     steps:
-    - uses: shivammathur/setup-php@15c43e89cdef867065b0213be354c2841860869e
+    - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
       with:
         php-version: '8.2'
+        coverage: none
+    
+    - name: Install Dependencies
+      run: composer install --no-interaction --prefer-dist --no-dev
+    
+    # Scan des vulnérabilités avec Composer Audit
+    - name: Check for security vulnerabilities (Composer)
+      run: composer audit --format=json || true
+    
+    # Scan avec Local PHP Security Checker
+    - name: PHP Security Checker
+      uses: symfonycorp/security-checker-action@v5
+      continue-on-error: true
+
+  # 2. Analyse statique du code (SAST)
+  static-analysis:
+    name: Static Code Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
     - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        tools: phpstan, psalm
+    
+    - name: Install Dependencies
+      run: composer install --no-interaction --prefer-dist
+    
+    # PHPStan - Analyse statique
+    - name: Run PHPStan
+      run: |
+        composer require --dev phpstan/phpstan --no-interaction
+        vendor/bin/phpstan analyse app --level=5 --no-progress || true
+    
+    # PHP Code Sniffer - Standards de code
+    - name: PHP Code Sniffer
+      run: |
+        composer require --dev squizlabs/php_codesniffer --no-interaction
+        vendor/bin/phpcs app --standard=PSR12 --report=summary || true
+
+  # 3. Scan des secrets et credentials
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    # Gitleaks - Détection de secrets
+    - name: Gitleaks Scan
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+    
+    # TruffleHog - Alternative pour détecter les secrets
+    - name: TruffleHog Scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+      continue-on-error: true
+
+  # 4. Tests de sécurité Laravel
+  laravel-security:
+    name: Laravel Security Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, json, bcmath, pdo_sqlite
+    
     - name: Copy .env
       run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+    
     - name: Install Dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      run: composer install --no-interaction --prefer-dist
+    
     - name: Generate key
       run: php artisan key:generate
-    - name: Directory Permissions
-      run: chmod -R 777 storage bootstrap/cache
+    
+    - name: Directory Permissions (Secure)
+      run: chmod -R 755 storage bootstrap/cache
+    
     - name: Create Database
       run: |
         mkdir -p database
         touch database/database.sqlite
-    - name: Execute tests (Unit and Feature tests) via PHPUnit/Pest
+    
+    # Vérifier les configurations de sécurité Laravel
+    - name: Check Laravel Security Config
+      run: |
+        echo "Checking security configurations..."
+        php artisan config:cache
+        php artisan route:cache
+        
+        # Vérifier que APP_DEBUG est false en production
+        if grep -q "APP_DEBUG=true" .env.example; then
+          echo "⚠️  Warning: APP_DEBUG should be false in production"
+        fi
+        
+        # Vérifier la présence de APP_KEY
+        if ! grep -q "APP_KEY=base64:" .env; then
+          echo "❌ Error: APP_KEY not set"
+          exit 1
+        fi
+    
+    # Exécuter les tests
+    - name: Execute tests
       env:
-       DB_CONNECTION: sqlite
-       DB_DATABASE: database/database.sqlite
-      run: php artisan test
+        DB_CONNECTION: sqlite
+        DB_DATABASE: database/database.sqlite
+      run: php artisan test --coverage --min=70
+    
+    # Enlightn Security Checker (optionnel mais recommandé)
+    - name: Enlightn Security Check
+      run: |
+        composer require --dev enlightn/enlightn --no-interaction
+        php artisan enlightn --ci || true
+
+  # 5. Scan des dépendances NPM (si vous utilisez npm)
+  npm-security:
+    name: NPM Security Audit
+    runs-on: ubuntu-latest
+    if: hashFiles('package.json') != ''
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install Dependencies
+      run: npm ci
+    
+    - name: NPM Audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+    
+    - name: Check for outdated packages
+      run: npm outdated || true
+
+  # 6. Analyse de la qualité du code
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+    
+    - name: Install Dependencies
+      run: composer install --no-interaction --prefer-dist
+    
+    # PHP Mess Detector
+    - name: PHP Mess Detector
+      run: |
+        composer require --dev phpmd/phpmd --no-interaction
+        vendor/bin/phpmd app text cleancode,codesize,controversial,design,naming,unusedcode || true
+    
+    # PHP Copy/Paste Detector
+    - name: PHP Copy/Paste Detector
+      run: |
+        composer require --dev sebastian/phpcpd --no-interaction
+        vendor/bin/phpcpd app || true
+
+  # 7. Vérification des permissions de fichiers
+  file-permissions:
+    name: File Permissions Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check sensitive file permissions
+      run: |
+        echo "Checking for sensitive files with wrong permissions..."
+        
+        # Vérifier que .env n'est pas commité
+        if [ -f .env ]; then
+          echo "❌ Error: .env file should not be committed"
+          exit 1
+        fi
+        
+        # Vérifier les fichiers sensibles
+        find . -name "*.key" -o -name "*.pem" -o -name "*.p12" | while read file; do
+          echo "⚠️  Warning: Sensitive file found: $file"
+        done
+
+  # 8. Build et déploiement sécurisé (exemple)
+  deploy:
+    name: Secure Deployment
+    runs-on: ubuntu-latest
+    needs: [security-scan, static-analysis, secrets-scan, laravel-security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+    
+    - name: Install Dependencies (Production)
+      run: composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+    
+    - name: Optimize Laravel
+      run: |
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+    
+    - name: Create deployment artifact
+      run: |
+        tar -czf deployment.tar.gz \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='tests' \
+          --exclude='.env' \
+          .
+    
+    # Ici vous ajouteriez vos étapes de déploiement
+    # - name: Deploy to production
+    #   run: |
+    #     # Vos commandes de déploiement sécurisées
