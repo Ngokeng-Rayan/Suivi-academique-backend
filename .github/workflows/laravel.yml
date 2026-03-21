@@ -159,7 +159,7 @@ jobs:
   npm-security:
     name: NPM Security Audit
     runs-on: ubuntu-latest
-    if: hashFiles('package.json') != ''
+    if: ${{ hashFiles('package.json') != '' }}
     
     steps:
     - uses: actions/checkout@v4
