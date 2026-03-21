@@ -262,8 +262,3 @@ jobs:
           --exclude='tests' \
           --exclude='.env' \
           .
-    
-    # Ici vous ajouteriez vos étapes de déploiement
-    # - name: Deploy to production
-    #   run: |
-    #     # Vos commandes de déploiement sécurisées
